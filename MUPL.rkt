@@ -151,7 +151,7 @@
                                                            (λ(x) (if (and (not(set-member? free x)) (not(set-member? not-free x)))
                                                                      (set-add! free x)
                                                                       (set! free free)))) another-fun)))]
-           [f (λ(ee free not-free)
+           [f (λ(ee)
                 (cond [(fun? ee) (begin (set-add! not-free (fun-formal ee)) (if (not (null? (fun-nameopt ee))) (set-add! not-free (fun-nameopt ee)) (set! free free))
                                         (if (fun? (fun-body ee)) (let ([another-fun (compute-free-vars(fun-body ee))])
                                             (fun-challenge (fun-nameopt ee) (fun-formal ee) another-fun (list->set (append (foldl (λ(x acc) (if (null? x) acc
@@ -181,7 +181,6 @@
     (f e)))
           
 ;; New eval-under-env specially made for fun-challenge that have free var
-;; Test case:(eval-exp-c (call (call mupl-all-gt (int 5)) (apair (int 4) (apair (int 7) (apair (int 3) (apair (int 9) (munit)))))))
 (define (eval-under-env-c e env)
   (cond [(var? e) 
          (envlookup env (var-string e))]
