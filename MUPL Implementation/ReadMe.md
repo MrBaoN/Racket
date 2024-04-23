@@ -11,7 +11,7 @@ And especially the environment's role in evaluating expression.
 To run correctly, create your own MUPL expression and evaluate it with (eval-exp **MUPL-expression**).
 
 Here are some test you can try yourself:
-- (eval-exp-c (call (call mupl-all-gt (int 5)) (apair (int 4) (apair (int 7) (apair (int 3) (apair (int 9) (munit)))))))
+- (eval-exp (call (call mupl-all-gt (int 5)) (apair (int 4) (apair (int 7) (apair (int 3) (apair (int 9) (munit)))))))
 - (eval-under-env-c (compute-free-vars (call (call mupl-all-gt (int 5)) (apair (int 4) (apair (int 7) (apair (int 3) (apair (int 9) (munit))))))) (list (cons "x" (int 42)) (cons "y" (int 33)) (cons "HUH" (int 77))))
 
 The first test utilize a naive approach to evaluating MUPL, where building closure are done under the **main** environment. The second test employ a smarter approach where building closure are done in a much smaller environment, consists of only free variables found in the functions. 
