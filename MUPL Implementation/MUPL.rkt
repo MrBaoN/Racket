@@ -169,7 +169,7 @@
                       [(call? ee) (call (if (fun?(call-funexp ee)) (check-inside (call-funexp ee)) (f(call-funexp ee)))
                                         (if (fun?(call-actual ee)) (check-inside (call-actual ee))                                                                                                                                    
                                             (f(call-actual ee))))]
-                      [(ifnz? ee) (ifnz (f (ifnz-e1 ee)) (f(ifnz-e2 ee)) (f(ifnz-e3 ee)))]
+                      [(ifnz? ee) (ifnz (f (ifnz-e1 ee)) (if (fun? (ifnz-e2 ee)) (check-inside (ifnz-e2 ee)) (f(ifnz-e2 ee))) (if (fun? (ifnz-e3 ee)) (check-inside (ifnz-e3 ee)) (f(ifnz-e3 ee))))]
                       [(isgreater? ee) (isgreater (f (isgreater-e1 ee)) (f (isgreater-e2 ee)))]
                       [(apair? ee) (apair (f (apair-e1 ee)) (f (apair-e2 ee)))]
                       [(ismunit? ee) (ismunit (f (ismunit-e ee)))]
@@ -215,10 +215,29 @@
                           (cons (second (car e1-notfunc)) (set->list (cross-check (cdr e1-notfunc)free not-free))))]
                         
                        [(ifnz? expression)
-                        (let ([e1-notfunc (helper (ifnz-e1 expression) free not-free)]                               
-                               [e2-notfunc (helper (ifnz-e2 expression) free not-free)]                              
-                               [e3-notfunc (helper (ifnz-e3 expression) free not-free)])
-                          (cons (ifnz (car e1-notfunc) (car e2-notfunc) (car e3-notfunc)) (set->list (cross-check (cdr e3-notfunc) (set->list (cross-check (cdr e2-notfunc) (set->list (cross-check (cdr e1-notfunc) free not-free)) not-free)) not-free))))]
+                        (let* ([e1-notfunc (helper (ifnz-e1 expression) free not-free)]
+                              [new-free (cross-check (cdr e1-notfunc) free not-free)])
+                          (if (fun? (ifnz-e2 expression))
+                              (let* ([e2-func (helper (ifnz-e2 expression) (set) (set))]
+                                     [newer-new-free (cross-check (set->list (fun-challenge-freevars e2-func)) new-free not-free)])
+
+                                (if (fun? (ifnz-e3 expression))
+                                    (let ([e3-func (helper (ifnz-e3 expression) (set) (set))])
+                                      (cons (ifnz (car e1-notfunc) e2-func e3-func) (set->list (cross-check (set->list(fun-challenge-freevars e3-func)) newer-new-free  not-free))))
+
+                                    (let ([e3-notfunc (helper (ifnz-e3 expression) newer-new-free not-free)])
+                                      (cons (ifnz (car e1-notfunc) e2-func (car e3-notfunc)) (set->list (cross-check (cdr e3-notfunc) newer-new-free not-free))))))
+
+                              (let* ([e2-notfunc (helper (ifnz-e2 expression) new-free not-free)]
+                                     [newer-new-free (cross-check (cdr e2-notfunc) new-free not-free)])
+
+                                (if (fun? (ifnz-e3 expression))
+                                    (let ([e3-func (helper (ifnz-e3 expression) (set) (set))])
+                                      (cons (ifnz (car e1-notfunc) (car e2-notfunc) e3-func) (set->list (cross-check (set->list(fun-challenge-freevars e3-func)) newer-new-free  not-free))))
+
+                                    (let ([e3-notfunc (helper (ifnz-e3 expression) newer-new-free not-free)])
+                                      (cons (ifnz (car e1-notfunc) (car e2-notfunc) (car e3-notfunc)) (set->list (cross-check (cdr e3-notfunc) newer-new-free not-free))))))))]
+                          
                           
 
                        [(add? expression)
