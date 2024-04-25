@@ -28,7 +28,7 @@
   (if (munit? mupllist) null
       (cons (apair-e1 mupllist) (mupllist->racketlist (apair-e2 mupllist)))))
 
-;; lookup a variable in an environment
+;; Lookup a variable in an environment
 (define (envlookup env str)
   (cond [(null? env) (error "unbound variable during evaluation" str)]
         [(equal? (car (car env)) str) (cdr (car env))]
@@ -143,6 +143,7 @@
 (struct fun-challenge (nameopt formal body freevars) #:transparent) ;; a recursive(?) 1-argument function
 
 ;; Helper that finds all free variables in MUPL expression
+;; Implement using mutable-set
 (define (compute-free-vars e)
   (letrec ([not-free (mutable-set)]
            [free (mutable-set)]
@@ -164,22 +165,123 @@
                                                                                  (if (fun? (mlet-body ee)) (check-inside (mlet-body ee))
                                                                                      (f (mlet-body ee)))))]
                       [(var? ee) (if (and (not(set-member? free (var-string ee))) (not(set-member? not-free (var-string ee)))) (begin (set-add! free (var-string ee)) ee) ee)]
-                      [(add? ee) (add (if (fun? (add-e1 ee)) (check-inside (add-e1 ee)) (f(add-e1 ee))) (if (fun?(add-e2 ee)) (check-inside (add-e2 ee)) (f(add-e2 ee))))] 
+                      [(add? ee) (add  (f(add-e1 ee)) (f(add-e2 ee)))] 
                       [(call? ee) (call (if (fun?(call-funexp ee)) (check-inside (call-funexp ee)) (f(call-funexp ee)))
                                         (if (fun?(call-actual ee)) (check-inside (call-actual ee))                                                                                                                                    
                                             (f(call-actual ee))))]
-                      [(ifnz? ee) (ifnz (if (fun? (ifnz-e1 ee)) (check-inside (ifnz-e1 ee)) (f (ifnz-e1 ee))) (if (fun? (ifnz-e2 ee)) (check-inside (ifnz-e2 ee))(f(ifnz-e2 ee))) (if (fun? (ifnz-e3 ee)) (check-inside (ifnz-e3 ee))(f(ifnz-e3 ee))))]
-                      [(isgreater? ee) (isgreater (if (fun? (isgreater-e1 ee)) (check-inside (isgreater-e1 ee)) (f (isgreater-e1 ee))) (if (fun? (isgreater-e2 ee)) (check-inside (isgreater-e2 ee)) (f (isgreater-e2 ee))))]
-                      [(apair? ee) (apair (if (fun? (apair-e1 ee)) (check-inside (apair-e1 ee))(f (apair-e1 ee))) (if (fun? (apair-e2 ee)) (check-inside (apair-e2 ee))(f (apair-e2 ee))))]
-                      [(ismunit? ee) (ismunit (if (fun? (ismunit-e ee)) (check-inside (ismunit-e ee)) (f (ismunit-e ee))))]
-                      [(first? ee) (first (if (fun? (first-e ee)) (check-inside (first-e ee)) (f (first-e ee))))]
-                      [(second? ee) (second (if (fun? (second-e ee)) (check-inside (second-e ee)) (f (second-e ee))))]
+                      [(ifnz? ee) (ifnz (f (ifnz-e1 ee)) (f(ifnz-e2 ee)) (f(ifnz-e3 ee)))]
+                      [(isgreater? ee) (isgreater (f (isgreater-e1 ee)) (f (isgreater-e2 ee)))]
+                      [(apair? ee) (apair (f (apair-e1 ee)) (f (apair-e2 ee)))]
+                      [(ismunit? ee) (ismunit (f (ismunit-e ee)))]
+                      [(first? ee) (first (f (first-e ee)))]
+                      [(second? ee) (second (f (second-e ee)))]
                       [(int? ee) ee]
                       [(munit? ee) ee]
                       
                       ))])
     (f e)))
-          
+
+;; Implemented using non-mutable set
+(define (compute-free-vars2 e)
+  (letrec ([cross-check (λ(cross-check-list set-free set-not-free) ;; list -> set -> set -> set
+                          (foldl (λ(z acc) (if (null? z) acc (set-add acc z))) set-free (filter (λ(x) (not (or (set-member? set-free x) (set-member? set-not-free x)))) cross-check-list)))]
+           [helper (λ(expression free not-free)
+                     (cond
+                       [(munit? expression) (cons expression (set->list free))]
+                       [(var? expression) (cons expression (set->list(cross-check (list (var-string expression)) free not-free)))]
+
+                       [(int? expression) (cons expression (set->list free))]
+
+                       [(isgreater? expression)
+                        (let ([e1-notfunc (helper (isgreater-e1 expression) free not-free)]
+                              [e2-notfunc (helper (isgreater-e2 expression) free not-free)])
+                          (cons (isgreater (car e1-notfunc) (car e2-notfunc)) (set->list (cross-check (cdr e1-notfunc) (set->list (cross-check (cdr e2-notfunc) free not-free)) not-free))))]
+
+                       [(apair? expression)
+                        (let ([e1-notfunc (helper (apair-e1 expression) free not-free)]
+                              [e2-notfunc (helper (apair-e2 expression) free not-free)])
+                          (cons (apair (car e1-notfunc) (car e2-notfunc)) (set->list (cross-check (cdr e1-notfunc) (set->list (cross-check (cdr e2-notfunc) free not-free)) not-free))))]
+
+                       [(ismunit? expression)
+                        (let ([e1-notfunc (helper (ismunit-e expression) free not-free)])
+                          (cons (ismunit (car e1-notfunc)) (set->list (cross-check (cdr e1-notfunc)free not-free))))]
+
+                       [(first? expression)
+                        (let ([e1-notfunc (helper (first-e expression) free not-free)])
+                          (cons (first (car e1-notfunc)) (set->list (cross-check (cdr e1-notfunc)free not-free))))]
+
+                       [(second? expression)
+                        (let ([e1-notfunc (helper (second-e expression) free not-free)])
+                          (cons (second (car e1-notfunc)) (set->list (cross-check (cdr e1-notfunc)free not-free))))]
+                        
+                       [(ifnz? expression)
+                        (let ([e1-notfunc (helper (ifnz-e1 expression) free not-free)]                               
+                               [e2-notfunc (helper (ifnz-e2 expression) free not-free)]                              
+                               [e3-notfunc (helper (ifnz-e3 expression) free not-free)])
+                          (cons (ifnz (car e1-notfunc) (car e2-notfunc) (car e3-notfunc)) (set->list (cross-check (cdr e3-notfunc) (set->list (cross-check (cdr e2-notfunc) (set->list (cross-check (cdr e1-notfunc) free not-free)) not-free)) not-free))))]
+                          
+
+                       [(add? expression)
+                        (let* ([e1-notfunc (helper (add-e1 expression) free not-free)]
+                               [new-free (cross-check (cdr e1-notfunc) free not-free)])
+                          (let ([e2-notfunc (helper (add-e2 expression) new-free not-free)])
+                            (cons (add (car e1-notfunc) (car e2-notfunc)) (set->list (cross-check (cdr e2-notfunc) new-free not-free)))))]
+
+                       [(call? expression)
+                        (if (fun? (call-funexp expression))
+                            (let* ([e1-func (helper (call-funexp expression) (set) (set))]
+                                   [new-free (cross-check (set->list (fun-challenge-freevars e1-func)) free not-free)])
+
+                              (if (fun? (call-actual expression))
+                                  (let ([e2-func (helper (call-actual expression) (set) (set))])
+                                    (cons (call e1-func e2-func)(set->list (cross-check (set->list (fun-challenge-freevars e2-func)) new-free not-free))))
+
+                                  (let ([e2-notfunc (helper (call-actual expression) free not-free)])
+                                    (cons (call e1-func (car e2-notfunc)) (set->list (cross-check (cdr e2-notfunc) new-free not-free))))))
+
+                            (let* ([e1-notfunc (helper (call-funexp expression) free not-free)]
+                                   [new-free (cross-check (cdr e1-notfunc) free not-free)])
+
+                              (if (fun? (call-actual expression))
+                                  (let ([e2-func (helper (call-actual expression) (set) (set))])
+                                    (cons (call (car e1-notfunc) e2-func) (set->list (cross-check (set->list(fun-challenge-freevars e2-func)) new-free not-free))))
+
+                                  (let ([e2-notfunc (helper (call-actual expression) free not-free)])
+                                    (cons (call (car e1-notfunc) (car e2-notfunc)) (set->list (cross-check (cdr e2-notfunc) new-free not-free)))))))]
+
+                       [(fun? expression)
+                        (let ([new-not-free (if (null? (fun-nameopt expression)) (set-add not-free (fun-formal expression)) (set-add (set-add not-free (fun-formal expression)) (fun-nameopt expression)))])
+
+                          (if (fun? (fun-body expression))
+                              (let ([new-body (helper (fun-body expression)(set)(set))])
+                                (fun-challenge (fun-nameopt expression) (fun-formal expression) new-body (cross-check (set->list(fun-challenge-freevars new-body)) free new-not-free)))
+                              (let ([new-body (helper (fun-body expression) free new-not-free)])
+                                (fun-challenge (fun-nameopt expression) (fun-formal expression) (car new-body) (cross-check (cdr new-body) free new-not-free)))))]
+
+                           [(mlet? expression)
+                            (let ([new-not-free (set-add not-free (mlet-var expression))])
+                              
+                              (if (fun? (mlet-e expression))
+                                  (let* ([e-isfunc (helper (mlet-e expression) (set) (set))]
+                                         [new-free (cross-check (set->list(fun-challenge-freevars e-isfunc)) free new-not-free)])
+                                    
+                                    (if (fun? (mlet-body expression))
+                                        (let ([body-func (helper (mlet-body expression) (set)(set))])
+                                          (cons (mlet (mlet-var expression) e-isfunc body-func) (set->list(cross-check (set->list (fun-challenge-freevars body-func)) new-free new-not-free))))
+                                        (let ([body-not-func (helper (mlet-body expression) new-free new-not-free)])
+                                          (cons (mlet (mlet-var expression) e-isfunc (car body-not-func)) (set->list(cross-check (cdr body-not-func) new-free new-not-free))))))
+
+                                  (let* ([e-notfunc (helper (mlet-e expression) free new-not-free)]
+                                         [new-free (cross-check (cdr e-notfunc) free new-not-free)])
+
+                                    (if (fun? (mlet-body expression))
+                                        (let ([body-func (helper (mlet-body expression) (set)(set))])
+                                          (cons (mlet (mlet-var expression) (car e-notfunc) body-func) (set->list(cross-check (set->list (fun-challenge-freevars body-func)) new-free new-not-free))))
+                                        (let ([body-not-func (helper (mlet-body expression) new-free new-not-free)])
+                                          (cons (mlet (mlet-var expression) (car e-notfunc) (car body-not-func)) (set->list(cross-check (cdr body-not-func) new-free new-not-free))))))))]))])
+
+    (if (fun? e) (helper e (set)(set)) (car (helper e (set) (set))))))
+
 ;; New eval-under-env specially made for fun-challenge that have free var
 (define (eval-under-env-c e env)
   (cond [(var? e) 
@@ -236,6 +338,10 @@
 
         [#t (error (format "bad MUPL expression: ~v" e))]))
 
-;; More test:(eval-under-env-c (compute-free-vars (call (call mupl-all-gt (int 5)) (apair (int 4) (apair (int 7) (apair (int 3) (apair (int 9) (munit))))))) (list (cons "x" (int 42)) (cons "y" (int 33)) (cons "HUH" (int 77))))
-(define (eval-exp-c e)
+;; Call compute-free-vars helper that use mutable-set
+(define (eval-exp-mutable e)
   (eval-under-env-c (compute-free-vars e) null))
+
+;; Call compute-free-vars helper that use non-mutable-set
+(define (eval-exp-non-mutable e)
+  (eval-under-env-c (compute-free-vars2 e) null))
