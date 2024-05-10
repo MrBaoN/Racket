@@ -8,11 +8,18 @@ This project serves as a daily reminder on how code are compiled and evaluated u
 
 And especially the environment's role in evaluating expression.
 
-To run correctly, create your own MUPL expression and evaluate it with (eval-exp **MUPL-expression**).
+![These are the features currently supported by the MUPL!](./supportedFeature.png)
 
-Here are some test you can try yourself:
-- (eval-exp (call (call mupl-all-gt (int 5)) (apair (int 4) (apair (int 7) (apair (int 3) (apair (int 9) (munit)))))))
-- (eval-under-env-c (compute-free-vars (call (call mupl-all-gt (int 5)) (apair (int 4) (apair (int 7) (apair (int 3) (apair (int 9) (munit))))))) (list (cons "x" (int 42)) (cons "y" (int 33)) (cons "HUH" (int 77))))
+There are 3 implementation of the evaluation method:
+- (eval-exp **MUPL-expression**) Naive implementation, where everything, including function, are evaluated with the entire environment.
+- (eval-mutable **MUPL-expression**) Evaluate function with a smaller environment that consists of only free variables, using set mutation
+- (eval-non-mutable **MUPL-expression**) Evaluate function with a smaller environment as well, but with non-mutable set
 
-The first test utilize a naive approach to evaluating MUPL, where building closure are done under the **main** environment. The second test employ a smarter approach where building closure are done in a much smaller environment, consists of only free variables found in the functions. 
+To run correctly, create your own MUPL expression and evaluate it with one of the 3 method of evaluation above.
+
+Here are some MUPL expression you can try yourself:
+```(call (call mupl-filter (fun null "x" (isgreater (var "x") (int 0)))) (apair (int 3) (apair (int -4) (apair (int 42) (munit)))))```
+```(call (call mupl-map (fun null "x" (ifnz (isgreater (int 0) (var "x")) (sub (int 0) (var "x")) (var "x")))) (apair (int -3) (apair (int 42) (apair (int -14) (munit)))))
+
+
 - **Definition:** Free variables are those not bounded by anything. i.e. (fun "add-y" "x" (add (var "x") (var "y"))) where "y" is a free variable as it is unknown should the environment be null, whereas "x" is the function argument, and will natural be known when the function is called.
