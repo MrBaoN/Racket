@@ -22,4 +22,4 @@ Here are some MUPL expression you can try yourself:
 - ```(call (call mupl-map (fun null "x" (ifnz (isgreater (int 0) (var "x")) (sub (int 0) (var "x")) (var "x")))) (apair (int -3) (apair (int 42) (apair (int -14) (munit)))))```
 
 
-- **Definition:** Free variables are those not bounded by anything. i.e. (fun "add-y" "x" (add (var "x") (var "y"))) where "y" is a free variable as it is unknown should the environment be null, whereas "x" is the function argument, and will natural be known when the function is called.
+**Definition:** Free variables are those not bounded by anything. i.e. (fun "add-y" "x" (add (var "x") (var "y"))) where "y" is a free variable as it is unknown should the environment be null, whereas "x" is the function argument, and will natural be known when the function is called.
