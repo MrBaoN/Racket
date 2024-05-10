@@ -5,9 +5,9 @@
 (struct int  (num)    #:transparent)  ;; a constant number, e.g., (int 17)
 (struct add  (e1 e2)  #:transparent)  ;; add two expressions
 (struct sub  (e1 e2)  #:transparent)  ;; subtract two expressions
-(struct isgreater (e1 e2)    #:transparent) ;; if e1 > e2 then 1 else 0
+(struct isgreater (e1 e2)  #:transparent) ;; if e1 > e2 then 1 else 0
 (struct ifnz (e1 e2 e3) #:transparent) ;; if not zero e1 then e2 else e3
-(struct call (funexp actual)       #:transparent) ;; function call
+(struct call (funexp actual)  #:transparent) ;; function call
 (struct mlet (var e body) #:transparent) ;; a local binding (let var = e in body) 
 (struct apair   (e1 e2) #:transparent) ;; make a new pair
 (struct first   (e)     #:transparent) ;; get first part of a pair
