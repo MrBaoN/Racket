@@ -1,6 +1,6 @@
 # MUPL Implementation
 This project serves as a daily reminder on how code are compiled and evaluated under the hood, in particular:
-- Let-expression effect on environment
+- Let-expression's effect on environment
 - Function evaluation
 - Variable bindings
 - Macros
