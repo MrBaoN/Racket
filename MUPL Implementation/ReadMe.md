@@ -17,9 +17,9 @@ There are 3 implementation of the evaluation method:
 
 To run correctly, create your own MUPL expression and evaluate it with one of the 3 method of evaluation above.
 
-Here are some MUPL expression you can try yourself:
-```(call (call mupl-filter (fun null "x" (isgreater (var "x") (int 0)))) (apair (int 3) (apair (int -4) (apair (int 42) (munit)))))```
-```(call (call mupl-map (fun null "x" (ifnz (isgreater (int 0) (var "x")) (sub (int 0) (var "x")) (var "x")))) (apair (int -3) (apair (int 42) (apair (int -14) (munit)))))
+Here are some MUPL expression:
+- ```(call (call mupl-filter (fun null "x" (isgreater (var "x") (int 0)))) (apair (int 3) (apair (int -4) (apair (int 42) (munit)))))```
+- ```(call (call mupl-map (fun null "x" (ifnz (isgreater (int 0) (var "x")) (sub (int 0) (var "x")) (var "x")))) (apair (int -3) (apair (int 42) (apair (int -14) (munit)))))```
 
 
-- **Definition:** Free variables are those not bounded by anything. i.e. (fun "add-y" "x" (add (var "x") (var "y"))) where "y" is a free variable as it is unknown should the environment be null, whereas "x" is the function argument, and will natural be known when the function is called.
+**Definition:** Free variables are those not bounded by anything. i.e. (fun "add-y" "x" (add (var "x") (var "y"))) where "y" is a free variable as it is unknown should the environment be null, whereas "x" is the function argument, and will natural be known when the function is called.
