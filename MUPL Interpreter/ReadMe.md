@@ -1,4 +1,4 @@
-# MUPL Implementation
+# Made Up Programming Language Interpreter (MUPL)
 This project serves as a daily reminder on how code are compiled and evaluated under the hood, in particular:
 - Let-expression's effect on environment
 - Function evaluation
