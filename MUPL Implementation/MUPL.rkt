@@ -12,8 +12,8 @@
 (struct apair   (e1 e2) #:transparent) ;; make a new pair
 (struct first   (e)     #:transparent) ;; get first part of a pair
 (struct second  (e)     #:transparent) ;; get second part of a pair
-(struct munit   ()      #:transparent) ;; unit value -- good for ending a list
-(struct ismunit (e)     #:transparent) ;; if e1 is unit then 1 else 0
+(struct munit   ()      #:transparent) ;; MUPL equivalence of null
+(struct ismunit (e)     #:transparent) ;; if e1 is munit then 1 else 0
 (struct fun  (nameopt arg body) #:transparent) ;; a 1 argument function, name of function could be null,
                                                ;; arg must be string, body is expr
 
