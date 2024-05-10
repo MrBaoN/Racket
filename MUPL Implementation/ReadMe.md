@@ -17,7 +17,7 @@ There are 3 implementation of the evaluation method:
 
 To run correctly, create your own MUPL expression and evaluate it with one of the 3 method of evaluation above.
 
-Here are some MUPL expression you can try yourself:
+Here are some MUPL expression:
 - ```(call (call mupl-filter (fun null "x" (isgreater (var "x") (int 0)))) (apair (int 3) (apair (int -4) (apair (int 42) (munit)))))```
 - ```(call (call mupl-map (fun null "x" (ifnz (isgreater (int 0) (var "x")) (sub (int 0) (var "x")) (var "x")))) (apair (int -3) (apair (int 42) (apair (int -14) (munit)))))```
 
