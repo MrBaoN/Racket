@@ -235,7 +235,7 @@
                     (int? v2))
                (int (+ (int-num v1) 
                        (int-num v2)))
-               (error "MUPL addition applied to non-number")))]
+               (error "MUPL addition applied to non-int")))]
 
         [(sub? e)
          (let ([v1 (eval-under-env (sub-e1 e) env)]
