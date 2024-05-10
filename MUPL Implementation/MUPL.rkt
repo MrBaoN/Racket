@@ -4,6 +4,7 @@
 (struct var  (string) #:transparent)  ;; a variable, e.g., (var "foo")
 (struct int  (num)    #:transparent)  ;; a constant number, e.g., (int 17)
 (struct add  (e1 e2)  #:transparent)  ;; add two expressions
+(struct sub  (e1 e2)  #:transparent)  ;; subtract two expressions
 (struct isgreater (e1 e2)    #:transparent) ;; if e1 > e2 then 1 else 0
 (struct ifnz (e1 e2 e3) #:transparent) ;; if not zero e1 then e2 else e3
 (struct call (funexp actual)       #:transparent) ;; function call
@@ -13,9 +14,8 @@
 (struct second  (e)     #:transparent) ;; get second part of a pair
 (struct munit   ()      #:transparent) ;; unit value -- good for ending a list
 (struct ismunit (e)     #:transparent) ;; if e1 is unit then 1 else 0
-(struct fun  (nameopt formal body) #:transparent) ;; a recursive(?) 1-argument function, e.g., (fun "add-1" "x" (add (var "x") (int 1))) --
-                                                  ;;since function have a name ("add-1"), it is a recursive funciton. Otherwise if it have null, it's an anonymous function
-
+(struct fun  (nameopt arg body) #:transparent) ;; a 1 argument function, name of function could be null,
+                                               ;; arg must be string, body is expr
 
 ;; a closure is not in "source" programs; it is what functions evaluate to
 (struct closure (env fun) #:transparent) 
@@ -38,6 +38,9 @@
 (define (eval-under-env e env)
   (cond [(var? e) 
          (envlookup env (var-string e))]
+
+        [(int? e) e]
+        
         [(add? e) 
          (let ([v1 (eval-under-env (add-e1 e) env)]
                [v2 (eval-under-env (add-e2 e) env)])
@@ -45,13 +48,21 @@
                     (int? v2))
                (int (+ (int-num v1) 
                        (int-num v2)))
-               (error "MUPL addition applied to non-number")))]
+               (error "MUPL addition applied to non-int")))]
+
+        [(sub? e)
+         (let ([v1 (eval-under-env (sub-e1 e) env)]
+               [v2 (eval-under-env (sub-e2 e) env)])
+           (if (and (int? v1)
+                    (int? v2))
+               (int (- (int-num v1) 
+                       (int-num v2)))
+               (error "MUPL subtraction applied to non-int")))]
 
         [(munit? e) e]
         
         [(fun? e) (closure env e)]
-    
-        [(int? e) e]
+
         [(isgreater? e) (let ([left (eval-under-env (isgreater-e1 e) env)]
                               [right (eval-under-env (isgreater-e2 e) env)])
                           (if (and (int? left) (int? right))
@@ -71,8 +82,8 @@
                      (if (closure? funcEval)
                          (eval-under-env (fun-body (closure-fun funcEval))
                                          (if (null? (fun-nameopt (closure-fun funcEval)))
-                                              (cons(cons(fun-formal(closure-fun funcEval)) (eval-under-env (call-actual e) env)) (closure-env funcEval))
-                                              (append (list(cons(fun-nameopt (closure-fun funcEval)) funcEval) (cons(fun-formal(closure-fun funcEval)) (eval-under-env (call-actual e) env))) (closure-env funcEval))))
+                                              (cons(cons(fun-arg(closure-fun funcEval)) (eval-under-env (call-actual e) env)) (closure-env funcEval))
+                                              (append (list(cons(fun-nameopt (closure-fun funcEval)) funcEval) (cons(fun-arg(closure-fun funcEval)) (eval-under-env (call-actual e) env))) (closure-env funcEval))))
                          (error "Function call on non-function")))]
 
         [(apair? e) (apair (eval-under-env (apair-e1 e) env) (eval-under-env (apair-e2 e) env))]
@@ -90,11 +101,12 @@
         
         [#t (error (format "bad MUPL expression: ~v" e))]))
 
-;; "Macros" in MUPL is Racket function
 
+;; Calling naive evaluation
 (define (eval-exp e)
   (eval-under-env e null))
 
+;; "Macros" in MUPL is Racket function
 (define (ifmunit e1 e2 e3) (ifnz (ismunit e1) e2 e3)) ;; if statement using munit
 
 (define (mlet* bs e2) ;;let* but in MUPL
@@ -108,39 +120,10 @@
                      e3))))
 
 
-;; Hall of Fame function
-(define mupl-filter
-  (fun null "func"
-       (fun "traverse" "val-list" (ifmunit (var "val-list") (munit)
-                                           (ifeq (int 0) (call (var "func") (first (var "val-list")))
-                                                 (call (var "traverse") (second (var "val-list")))
-                                                 (apair (first (var "val-list")) (call (var "traverse")(second (var "val-list")))))))))
-                  
-(define mupl-all-gt ;; filter out number less than num in num-list
-  (mlet "filter" mupl-filter
-        (fun null "num"
-             (fun null "num-list"
-                  (call(call (var "filter") (fun null "x" (isgreater (var "x") (var "num")))) (var "num-list"))))))
-
-(define mupl-foldl
-  (fun "mupl-foldl" "func"
-       (fun null "acc"
-            (fun null "mupl-list"
-                 (ifmunit (var "mupl-list") (var "acc")
-                          (call (call (call (var "mupl-foldl") (var "func")) (call (call (var "func") (first (var "mupl-list"))) (var "acc"))) (second (var "mupl-list"))))))))
-
-(define mupl-map
-  (fun "mupl-map" "func"
-       (fun null "mupl-list"
-            (ifmunit (var "mupl-list") (munit)
-            (apair (call (var "func") (first (var "mupl-list"))) (call (call (var "mupl-map")(var "func")) (second (var "mupl-list"))))))))
-
-
-
 ;; Challenge -- Making a more efficient closure that only store "free variables"
 ;; in the function instead of evaluating it under the environment every call
 
-(struct fun-challenge (nameopt formal body freevars) #:transparent) ;; a recursive(?) 1-argument function
+(struct fun-challenge (nameopt arg body freevars) #:transparent) ;; include all free variable in the body
 
 ;; Helper that finds all free variables in MUPL expression
 ;; Implement using mutable-set
@@ -153,19 +136,20 @@
                                                                      (set-add! free x)
                                                                       (set! free free)))) another-fun)))]
            [f (λ(ee)
-                (cond [(fun? ee) (begin (set-add! not-free (fun-formal ee)) (if (not (null? (fun-nameopt ee))) (set-add! not-free (fun-nameopt ee)) (set! free free))
+                (cond [(fun? ee) (begin (set-add! not-free (fun-arg ee)) (if (not (null? (fun-nameopt ee))) (set-add! not-free (fun-nameopt ee)) (set! free free))
                                         (if (fun? (fun-body ee)) (let ([another-fun (compute-free-vars(fun-body ee))])
-                                            (fun-challenge (fun-nameopt ee) (fun-formal ee) another-fun (list->set (append (foldl (λ(x acc) (if (null? x) acc
+                                            (fun-challenge (fun-nameopt ee) (fun-arg ee) another-fun (list->set (append (foldl (λ(x acc) (if (null? x) acc
                                                                                                                          (if (and (not(set-member? free x)) (not(set-member? not-free x))) (cons x acc)
                                                                                                                              acc))) null (set->list(fun-challenge-freevars another-fun))) (set->list free)))))
-                                            (fun-challenge (fun-nameopt ee)(fun-formal ee) (f(fun-body ee)) (list->set(set->list free)))))]
+                                            (fun-challenge (fun-nameopt ee)(fun-arg ee) (f(fun-body ee)) (list->set(set->list free)))))]
                       [(mlet? ee) (begin (set-add! not-free (mlet-var ee)) (mlet (mlet-var ee)
                                                                                  (if (fun? (mlet-e ee)) (check-inside (mlet-e ee))
                                                                                      (f (mlet-e ee)))
                                                                                  (if (fun? (mlet-body ee)) (check-inside (mlet-body ee))
                                                                                      (f (mlet-body ee)))))]
                       [(var? ee) (if (and (not(set-member? free (var-string ee))) (not(set-member? not-free (var-string ee)))) (begin (set-add! free (var-string ee)) ee) ee)]
-                      [(add? ee) (add  (f(add-e1 ee)) (f(add-e2 ee)))] 
+                      [(add? ee) (add  (f(add-e1 ee)) (f(add-e2 ee)))]
+                      [(sub? ee) (sub  (f(sub-e1 ee)) (f(sub-e2 ee)))]
                       [(call? ee) (call (if (fun?(call-funexp ee)) (check-inside (call-funexp ee)) (f(call-funexp ee)))
                                         (if (fun?(call-actual ee)) (check-inside (call-actual ee))                                                                                                                                    
                                             (f(call-actual ee))))]
@@ -221,9 +205,13 @@
                                                 [result-e2 (helper (add-e2 expr))])
                                             (cons (add (car result-e1) (car result-e2)) (set-union (cdr result-e1) (cdr result-e2))))]
 
+                       [(sub? expr) (let ([result-e1 (helper (sub-e1 expr))]
+                                                [result-e2 (helper (sub-e2 expr))])
+                                            (cons (sub (car result-e1) (car result-e2)) (set-union (cdr result-e1) (cdr result-e2))))]
+                       
                        [(fun? expr) (let* ([result (helper (fun-body expr))]
-                                          [free (if (null? (fun-nameopt expr)) (set-remove (cdr result) (fun-formal expr)) (set-remove (set-remove (cdr result) (fun-nameopt expr)) (fun-formal expr)))])
-                                      (cons (fun-challenge (fun-nameopt expr) (fun-formal expr) (car result) free) free))]
+                                          [free (if (null? (fun-nameopt expr)) (set-remove (cdr result) (fun-arg expr)) (set-remove (set-remove (cdr result) (fun-nameopt expr)) (fun-arg expr)))])
+                                      (cons (fun-challenge (fun-nameopt expr) (fun-arg expr) (car result) free) free))]
 
                        [(mlet? expr) (let ([result-e (helper (mlet-e expr))]
                                            [result-body (helper (mlet-body expr))])
@@ -233,10 +221,13 @@
     (car (helper e))))
 
 
-;; New eval-under-env specially made for fun-challenge that have free var
+;; New eval-under-env specially made for fun-challenge
 (define (eval-under-env-c e env)
   (cond [(var? e) 
          (envlookup env (var-string e))]
+
+        [(int? e) e]
+        
         [(add? e) 
          (let ([v1 (eval-under-env-c (add-e1 e) env)]
                [v2 (eval-under-env-c (add-e2 e) env)])
@@ -246,11 +237,19 @@
                        (int-num v2)))
                (error "MUPL addition applied to non-number")))]
 
+        [(sub? e)
+         (let ([v1 (eval-under-env (sub-e1 e) env)]
+               [v2 (eval-under-env (sub-e2 e) env)])
+           (if (and (int? v1)
+                    (int? v2))
+               (int (- (int-num v1) 
+                       (int-num v2)))
+               (error "MUPL subtraction applied to non-int")))]
+
         [(munit? e) e]
         
         [(fun-challenge? e) (closure (map (λ(x) (if (null? x) null (cons x (envlookup env x)))) (set->list (fun-challenge-freevars e))) e)]
     
-        [(int? e) e]
         [(isgreater? e) (let ([left (eval-under-env-c (isgreater-e1 e) env)]
                               [right (eval-under-env-c (isgreater-e2 e) env)])
                           (if (and (int? left) (int? right))
@@ -270,8 +269,8 @@
                      (if (closure? funcEval)
                          (eval-under-env-c (fun-challenge-body (closure-fun funcEval))
                                          (if (null? (fun-challenge-nameopt (closure-fun funcEval)))
-                                              (append (list(cons(fun-challenge-formal (closure-fun funcEval)) (eval-under-env-c (call-actual e) env))) (closure-env funcEval))
-                                              (append (list(cons(fun-challenge-nameopt (closure-fun funcEval)) funcEval) (cons(fun-challenge-formal(closure-fun funcEval)) (eval-under-env-c (call-actual e) env))) (closure-env funcEval))))
+                                              (append (list(cons(fun-challenge-arg (closure-fun funcEval)) (eval-under-env-c (call-actual e) env))) (closure-env funcEval))
+                                              (append (list(cons(fun-challenge-nameopt (closure-fun funcEval)) funcEval) (cons(fun-challenge-arg(closure-fun funcEval)) (eval-under-env-c (call-actual e) env))) (closure-env funcEval))))
                          (error "Function call on non-function")))]
 
         [(apair? e) (apair (eval-under-env-c (apair-e1 e) env) (eval-under-env-c (apair-e2 e) env))]
@@ -290,9 +289,42 @@
         [#t (error (format "bad MUPL expression: ~v" e))]))
 
 ;; Call compute-free-vars helper that use mutable-set
-(define (eval-exp-mutable e)
+(define (eval-mutable e)
   (eval-under-env-c (compute-free-vars e) null))
 
 ;; Call compute-free-vars helper that use non-mutable-set
-(define (eval-exp-non-mutable e)
+(define (eval-non-mutable e)
   (eval-under-env-c (compute-free-vars2 e) null))
+
+;; Hall of Fame function
+(define mupl-filter
+  (fun null "func"
+       (fun "traverse" "val-list" (ifmunit (var "val-list") (munit)
+                                           (ifeq (int 0) (call (var "func") (first (var "val-list")))
+                                                 (call (var "traverse") (second (var "val-list")))
+                                                 (apair (first (var "val-list")) (call (var "traverse")(second (var "val-list")))))))))
+                  
+(define mupl-all-gt ;; filter out number less than num in num-list
+  (mlet "filter" mupl-filter
+        (fun null "num"
+             (fun null "num-list"
+                  (call(call (var "filter") (fun null "x" (isgreater (var "x") (var "num")))) (var "num-list"))))))
+
+(define mupl-foldl
+  (fun "mupl-foldl" "func"
+       (fun null "acc"
+            (fun null "mupl-list"
+                 (ifmunit (var "mupl-list") (var "acc")
+                          (call (call (call (var "mupl-foldl") (var "func")) (call (call (var "func") (first (var "mupl-list"))) (var "acc"))) (second (var "mupl-list"))))))))
+
+(define mupl-map
+  (fun "mupl-map" "func"
+       (fun null "mupl-list"
+            (ifmunit (var "mupl-list") (munit)
+            (apair (call (var "func") (first (var "mupl-list"))) (call (call (var "mupl-map")(var "func")) (second (var "mupl-list"))))))))
+
+
+(define naive-nth-fib
+  (fun "nth-fib" "n"
+       (ifeq (var "n") (int 1) (int 0)
+             (ifeq (var "n") (int 2) (int 1) (add (call (var "nth-fib") (sub (var "n") (int 1))) (call (var "nth-fib") (sub (var "n") (int 2))))))))
